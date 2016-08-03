@@ -1,0 +1,75 @@
+package main
+
+import (
+	"fmt"
+	"strings"
+
+	"github.com/nlopes/slack"
+)
+
+type messagePoster interface {
+	PostMessage(string, string, slack.PostMessageParameters) (string, string, error)
+}
+
+type slackCfg struct {
+	messagePoster
+	channel string
+}
+
+// Sends a message to the Slack channel about the Event.
+func (cl *slackCfg) sendMessage(msg message) error {
+	var color string
+	if msg.color != "" {
+		color = msg.color
+	} else if strings.HasPrefix(msg.reason, "Success") {
+		color = "good"
+	} else if strings.HasPrefix(msg.reason, "Fail") {
+		color = "danger"
+	}
+
+	_, _, err := cl.PostMessage(cl.channel, "", slack.PostMessageParameters{
+		Attachments: []slack.Attachment{
+			slack.Attachment{
+				Color:    color,
+				Fallback: msg.msg,
+				Fields: []slack.AttachmentField{
+					slack.AttachmentField{
+						Title: "Message",
+						Value: msg.msg,
+					},
+					slack.AttachmentField{
+						Title: "Object",
+						Value: msg.obj,
+						Short: true,
+					},
+					slack.AttachmentField{
+						Title: "Name",
+						Value: msg.name,
+						Short: true,
+					},
+					slack.AttachmentField{
+						Title: "Reason",
+						Value: msg.reason,
+						Short: true,
+					},
+					slack.AttachmentField{
+						Title: "Component",
+						Value: msg.component,
+						Short: true,
+					},
+					slack.AttachmentField{
+						Title: "Count",
+						Value: fmt.Sprintf("%d", msg.count),
+						Short: true,
+					},
+				},
+			},
+		},
+	})
+
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
