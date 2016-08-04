@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/nlopes/slack"
@@ -40,6 +41,11 @@ func (cl *slackCfg) getAttachFields(msg message) (fields []slack.AttachmentField
 		slack.AttachmentField{
 			Title: "Component",
 			Value: msg.component,
+			Short: true,
+		},
+		slack.AttachmentField{
+			Title: "Count",
+			Value: fmt.Sprintf("%d", msg.count),
 			Short: true,
 		},
 	}

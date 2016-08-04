@@ -9,8 +9,51 @@ import (
 	"k8s.io/kubernetes/pkg/watch"
 )
 
-type watcher interface {
-	Watch(api.ListOptions) (watch.Interface, error)
+type whitelistEntry struct {
+	eventType string
+	msg       string
+	obj       string
+	name      string
+	reason    string
+	component string
+}
+
+type whitelist []whitelistEntry
+
+func (wl whitelist) accepts(msg message) bool {
+	if wl == nil {
+		return true
+	}
+
+	for _, entry := range wl {
+		if entry.eventType != "" && entry.eventType != msg.eventType {
+			continue
+		}
+
+		if entry.msg != "" && entry.msg != msg.msg {
+			continue
+		}
+
+		if entry.obj != "" && entry.obj != msg.obj {
+			continue
+		}
+
+		if entry.name != "" && entry.name != msg.name {
+			continue
+		}
+
+		if entry.reason != "" && entry.reason != msg.reason {
+			continue
+		}
+
+		if entry.component != "" && entry.component != msg.component {
+			continue
+		}
+
+		return true
+	}
+
+	return false
 }
 
 type kubeClient interface {
@@ -19,7 +62,8 @@ type kubeClient interface {
 
 type kubeCfg struct {
 	kubeClient
-	types map[watch.EventType]bool
+	types     map[watch.EventType]bool
+	whitelist whitelist
 }
 
 func (cl *kubeCfg) watchEvents(msgr messager) error {
@@ -53,14 +97,22 @@ func (cl *kubeCfg) watchEvents(msgr messager) error {
 			continue
 		}
 
-		log.Printf("received event type=%s, message=%s, reason=%s", event.Type, e.Message, e.Reason)
-
-		msgr.sendMessage(message{
+		msg := message{
 			msg:       e.Message,
 			obj:       e.InvolvedObject.Kind,
 			name:      e.GetObjectMeta().GetName(),
 			reason:    e.Reason,
 			component: e.Source.Component,
-		})
+			count:     int(e.Count),
+			eventType: string(event.Type),
+		}
+
+		if !cl.whitelist.accepts(msg) {
+			continue
+		}
+
+		log.Printf("event type=%s, message=%s, reason=%s", event.Type, e.Message, e.Reason)
+
+		msgr.sendMessage(msg)
 	}
 }

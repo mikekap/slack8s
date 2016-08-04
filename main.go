@@ -18,6 +18,8 @@ type message struct {
 	reason    string
 	component string
 	color     string
+	count     int
+	eventType string
 }
 
 type messager interface {
@@ -50,6 +52,12 @@ func main() {
 		}
 
 		kube.types = typeMap
+	}
+
+	var wl whitelist
+	whitelistString := os.Getenv("WHITELIST")
+	if err = json.Unmarshal([]byte(whitelistString), &wl); whitelistString != "" && err != nil {
+		kube.whitelist = wl
 	}
 
 	err = kube.watchEvents(msgr)
