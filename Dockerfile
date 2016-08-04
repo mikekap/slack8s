@@ -1,10 +1,10 @@
-FROM golang:1.6.2
+FROM alpine
 
-RUN mkdir -p $GOPATH/src/github.com/sfavron/slack8s
+RUN apk --update upgrade && \
+    apk add ca-certificates && \
+    update-ca-certificates && \
+    rm -rf /var/cache/apk/*
 
-WORKDIR $GOPATH/src/github.com/sfavron/slack8s
-ADD . $GOPATH/src/github.com/sfavron/slack8s
+ADD slack8s slack8s
 
-RUN go install
-
-CMD ["slack8s"]
+ENTRYPOINT ["/slack8s"]
