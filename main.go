@@ -16,7 +16,6 @@ type message struct {
 	reason    string
 	component string
 	color     string
-	count     int
 }
 
 type messager interface {
@@ -32,6 +31,7 @@ func main() {
 	msgr := &slackCfg{
 		messagePoster: slack.New(os.Getenv("SLACK_TOKEN")),
 		channel:       os.Getenv("SLACK_CHANNEL"),
+		env:           os.Getenv("ENV"),
 	}
 
 	err = watchEvents(cl, msgr)

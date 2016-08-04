@@ -48,7 +48,6 @@ func watchEvents(cl kubeClient, msgr messager) error {
 			name:      e.GetObjectMeta().GetName(),
 			reason:    e.Reason,
 			component: e.Source.Component,
-			count:     int(e.Count),
 		})
 	}
 }
