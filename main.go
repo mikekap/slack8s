@@ -75,7 +75,7 @@ func main() {
 	if kube.whitelist != nil {
 		log.Printf("whitelist configured:")
 		for _, w := range kube.whitelist {
-			log.Printf("entry: %v", w)
+			log.Printf("entry: %+v", w)
 		}
 	}
 
