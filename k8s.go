@@ -79,6 +79,7 @@ func (cl *kubeCfg) watchEvents(msgr messager) error {
 	for {
 		event, ok := <-w.ResultChan()
 		if !ok {
+			log.Printf("event channel closed, try reconnecting")
 			w, err = events.Watch(api.ListOptions{
 				LabelSelector: labels.Everything(),
 			})
@@ -88,8 +89,9 @@ func (cl *kubeCfg) watchEvents(msgr messager) error {
 			continue
 		}
 
+		send := true
 		if cl.types != nil && !cl.types[event.Type] {
-			continue
+			send = false
 		}
 
 		e, ok := event.Object.(*api.Event)
@@ -108,11 +110,19 @@ func (cl *kubeCfg) watchEvents(msgr messager) error {
 		}
 
 		if !cl.whitelist.accepts(msg) {
-			continue
+			send = false
 		}
 
-		log.Printf("event type=%s, message=%s, reason=%s", event.Type, e.Message, e.Reason)
+		log.Printf(
+			"event type=%s, message=%s, reason=%s, send=%v",
+			event.Type,
+			e.Message,
+			e.Reason,
+			send,
+		)
 
-		msgr.sendMessage(msg)
+		if send {
+			msgr.sendMessage(msg)
+		}
 	}
 }
