@@ -68,10 +68,26 @@ func main() {
 		whitelist:  getWhitelist(os.Getenv("WHITELIST")),
 	}
 
+	if kube.types != nil {
+		log.Printf("types filtered: %v", kube.types)
+	}
+
+	if kube.whitelist != nil {
+		log.Printf("whitelist configured:")
+		for _, w := range kube.whitelist {
+			log.Printf("entry: %v", w)
+		}
+	}
+
 	msgr := &slackCfg{
 		messagePoster: slack.New(os.Getenv("SLACK_TOKEN")),
 		channel:       os.Getenv("SLACK_CHANNEL"),
 		env:           os.Getenv("ENV"),
+	}
+
+	log.Printf("posting to channel %s", msgr.channel)
+	if msgr.env != "" {
+		log.Printf("running in env %s", msgr.env)
 	}
 
 	err = kube.watchEvents(msgr)
