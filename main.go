@@ -41,7 +41,8 @@ func main() {
 	}
 
 	var types []watch.EventType
-	if err = json.Unmarshal([]byte(os.Getenv("EVENT_TYPES")), &types); err != nil {
+	typeString := os.Getenv("EVENT_TYPES")
+	if err = json.Unmarshal([]byte(typeString), &types); typeString != "" && err != nil {
 		typeMap := make(map[watch.EventType]bool)
 
 		for _, t := range types {
