@@ -1,6 +1,8 @@
 package main
 
 import (
+	"log"
+
 	"k8s.io/kubernetes/pkg/api"
 	k8s "k8s.io/kubernetes/pkg/client/unversioned"
 	"k8s.io/kubernetes/pkg/labels"
@@ -15,7 +17,12 @@ type kubeClient interface {
 	Events(string) k8s.EventInterface
 }
 
-func watchEvents(cl kubeClient, msgr messager) error {
+type kubeCfg struct {
+	kubeClient
+	types map[watch.EventType]bool
+}
+
+func (cl *kubeCfg) watchEvents(msgr messager) error {
 	events := cl.Events(api.NamespaceAll)
 
 	w, err := events.Watch(api.ListOptions{
@@ -37,10 +44,16 @@ func watchEvents(cl kubeClient, msgr messager) error {
 			continue
 		}
 
+		if cl.types != nil && !cl.types[event.Type] {
+			continue
+		}
+
 		e, ok := event.Object.(*api.Event)
 		if !ok {
 			continue
 		}
+
+		log.Printf("received event type=%s, message=%s, reason=%s", event.Type, e.Message, e.Reason)
 
 		msgr.sendMessage(message{
 			msg:       e.Message,

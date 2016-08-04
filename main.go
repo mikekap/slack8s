@@ -1,12 +1,14 @@
 package main
 
 import (
+	"encoding/json"
 	"log"
 	"os"
 
 	"github.com/nlopes/slack"
 
 	k8s "k8s.io/kubernetes/pkg/client/unversioned"
+	"k8s.io/kubernetes/pkg/watch"
 )
 
 type message struct {
@@ -28,13 +30,28 @@ func main() {
 		log.Fatalf("Failed to create client: %s", err)
 	}
 
+	kube := &kubeCfg{
+		kubeClient: cl,
+	}
+
 	msgr := &slackCfg{
 		messagePoster: slack.New(os.Getenv("SLACK_TOKEN")),
 		channel:       os.Getenv("SLACK_CHANNEL"),
 		env:           os.Getenv("ENV"),
 	}
 
-	err = watchEvents(cl, msgr)
+	var types []watch.EventType
+	if err = json.Unmarshal([]byte(os.Getenv("EVENT_TYPES")), &types); err != nil {
+		typeMap := make(map[watch.EventType]bool)
+
+		for _, t := range types {
+			typeMap[t] = true
+		}
+
+		kube.types = typeMap
+	}
+
+	err = kube.watchEvents(msgr)
 	if err != nil {
 		log.Fatalf("Error from watchEvents(): %s", err)
 	}
