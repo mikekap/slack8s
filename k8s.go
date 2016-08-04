@@ -10,12 +10,12 @@ import (
 )
 
 type whitelistEntry struct {
-	eventType string
-	msg       string
-	obj       string
-	name      string
-	reason    string
-	component string
+	EventType string `json:"eventType,omitempty"`
+	Msg       string `json:"msg,omitempty"`
+	Obj       string `json:"obj,omitempty"`
+	Name      string `json:"name,omitempty"`
+	Reason    string `json:"reason,omitempty"`
+	Component string `json:"component,omitempty"`
 }
 
 type whitelist []whitelistEntry
@@ -26,27 +26,27 @@ func (wl whitelist) accepts(msg message) bool {
 	}
 
 	for _, entry := range wl {
-		if entry.eventType != "" && entry.eventType != msg.eventType {
+		if entry.EventType != "" && entry.EventType != msg.eventType {
 			continue
 		}
 
-		if entry.msg != "" && entry.msg != msg.msg {
+		if entry.Msg != "" && entry.Msg != msg.msg {
 			continue
 		}
 
-		if entry.obj != "" && entry.obj != msg.obj {
+		if entry.Obj != "" && entry.Obj != msg.obj {
 			continue
 		}
 
-		if entry.name != "" && entry.name != msg.name {
+		if entry.Name != "" && entry.Name != msg.name {
 			continue
 		}
 
-		if entry.reason != "" && entry.reason != msg.reason {
+		if entry.Reason != "" && entry.Reason != msg.reason {
 			continue
 		}
 
-		if entry.component != "" && entry.component != msg.component {
+		if entry.Component != "" && entry.Component != msg.component {
 			continue
 		}
 
