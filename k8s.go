@@ -82,7 +82,9 @@ func (cl *kubeCfg) onUpdate(eventType watch.EventType, obj interface{}) {
 		eventType: string(eventType),
 	}
 
-	send := cl.whitelist.accepts(msg)
+	tooOld := time.Now().Sub(e.LastTimestamp.Time) > 10 * time.Minute
+
+	send := cl.whitelist.accepts(msg) && !tooOld
 	log.Printf(
 		"event type=%s, message=%s, reason=%s, send=%v",
 		eventType,
