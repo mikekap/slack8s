@@ -8,7 +8,6 @@ import (
 	"github.com/nlopes/slack"
 
 	k8s "k8s.io/kubernetes/pkg/client/unversioned"
-	"k8s.io/kubernetes/pkg/watch"
 )
 
 type message struct {
@@ -38,45 +37,10 @@ func getWhitelist(wlStr string) (wl whitelist) {
 	return wl
 }
 
-func getTypes(typeStr string) (tm map[watch.EventType]bool) {
-	if typeStr == "" {
-		return nil
-	}
-
-	var types []watch.EventType
-	if err := json.Unmarshal([]byte(typeStr), &types); err != nil {
-		return nil
-	}
-
-	tm = make(map[watch.EventType]bool)
-	for _, t := range types {
-		tm[t] = true
-	}
-
-	return tm
-}
-
 func main() {
 	cl, err := k8s.NewInCluster()
 	if err != nil {
 		log.Fatalf("Failed to create client: %s", err)
-	}
-
-	kube := &kubeCfg{
-		kubeClient: cl,
-		types:      getTypes(os.Getenv("EVENT_TYPES")),
-		whitelist:  getWhitelist(os.Getenv("WHITELIST")),
-	}
-
-	if kube.types != nil {
-		log.Printf("types filtered: %v", kube.types)
-	}
-
-	if kube.whitelist != nil {
-		log.Printf("whitelist configured:")
-		for _, w := range kube.whitelist {
-			log.Printf("entry: %+v", w)
-		}
 	}
 
 	msgr := &slackCfg{
@@ -90,10 +54,18 @@ func main() {
 		log.Printf("running in env %s", msgr.env)
 	}
 
-	err = kube.watchEvents(msgr)
-	if err != nil {
-		log.Fatalf("Error from watchEvents(): %s", err)
+	kube := &kubeCfg{
+		Client:     cl,
+		whitelist:  getWhitelist(os.Getenv("WHITELIST")),
+		msgr:       msgr,
 	}
 
-	log.Println("Terminating...")
+	if kube.whitelist != nil {
+		log.Printf("whitelist configured:")
+		for _, w := range kube.whitelist {
+			log.Printf("entry: %+v", w)
+		}
+	}
+
+	kube.watchEvents()
 }

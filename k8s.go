@@ -2,11 +2,15 @@ package main
 
 import (
 	"log"
+	"time"
 
 	"k8s.io/kubernetes/pkg/api"
+	"k8s.io/kubernetes/pkg/client/cache"
+	"k8s.io/kubernetes/pkg/controller/framework"
 	k8s "k8s.io/kubernetes/pkg/client/unversioned"
-	"k8s.io/kubernetes/pkg/labels"
+	"k8s.io/kubernetes/pkg/fields"
 	"k8s.io/kubernetes/pkg/watch"
+	"k8s.io/kubernetes/pkg/util/wait"
 )
 
 type whitelistEntry struct {
@@ -56,73 +60,60 @@ func (wl whitelist) accepts(msg message) bool {
 	return false
 }
 
-type kubeClient interface {
-	Events(string) k8s.EventInterface
-}
-
 type kubeCfg struct {
-	kubeClient
-	types     map[watch.EventType]bool
+	*k8s.Client
 	whitelist whitelist
+	msgr messager
 }
 
-func (cl *kubeCfg) watchEvents(msgr messager) error {
-	events := cl.Events(api.NamespaceAll)
-
-	w, err := events.Watch(api.ListOptions{
-		LabelSelector: labels.Everything(),
-	})
-	if err != nil {
-		return err
+func (cl *kubeCfg) onUpdate(eventType watch.EventType, obj interface{}) {
+	e, ok := obj.(*api.Event)
+	if !ok {
+		return
 	}
 
-	for {
-		event, ok := <-w.ResultChan()
-		if !ok {
-			log.Printf("event channel closed, try reconnecting")
-			w, err = events.Watch(api.ListOptions{
-				LabelSelector: labels.Everything(),
-			})
-			if err != nil {
-				return err
-			}
-			continue
-		}
-
-		send := true
-		if cl.types != nil && !cl.types[event.Type] {
-			send = false
-		}
-
-		e, ok := event.Object.(*api.Event)
-		if !ok {
-			continue
-		}
-
-		msg := message{
-			msg:       e.Message,
-			obj:       e.InvolvedObject.Kind,
-			name:      e.GetObjectMeta().GetName(),
-			reason:    e.Reason,
-			component: e.Source.Component,
-			count:     int(e.Count),
-			eventType: string(event.Type),
-		}
-
-		if !cl.whitelist.accepts(msg) {
-			send = false
-		}
-
-		log.Printf(
-			"event type=%s, message=%s, reason=%s, send=%v",
-			event.Type,
-			e.Message,
-			e.Reason,
-			send,
-		)
-
-		if send {
-			msgr.sendMessage(msg)
-		}
+	msg := message{
+		msg:       e.Message,
+		obj:       e.InvolvedObject.Kind,
+		name:      e.GetObjectMeta().GetName(),
+		reason:    e.Reason,
+		component: e.Source.Component,
+		count:     int(e.Count),
+		eventType: string(eventType),
 	}
+
+	send := cl.whitelist.accepts(msg)
+	log.Printf(
+		"event type=%s, message=%s, reason=%s, send=%v",
+		eventType,
+		e.Message,
+		e.Reason,
+		send,
+	)
+
+	if send {
+		cl.msgr.sendMessage(msg)
+	}
+}
+
+func (cl *kubeCfg) watchEvents() {
+	watchlist := cache.NewListWatchFromClient(cl, "events", api.NamespaceAll, fields.Everything())
+	resyncPeriod := 30 * time.Minute
+
+	funcs := framework.ResourceEventHandlerFuncs{
+		AddFunc: func(obj interface{}) {
+			cl.onUpdate(watch.Added, obj);
+		},
+		UpdateFunc: func(before, after interface{}) {
+			cl.onUpdate(watch.Modified, after);
+		},
+	}
+
+	_, eController := framework.NewInformer(
+		watchlist,
+		&api.Event{},
+		resyncPeriod,
+		funcs,
+	)
+	eController.Run(wait.NeverStop)
 }
