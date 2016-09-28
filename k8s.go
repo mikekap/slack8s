@@ -105,7 +105,7 @@ func (cl *kubeCfg) watchEvents() {
 			cl.onUpdate(watch.Added, obj);
 		},
 		UpdateFunc: func(before, after interface{}) {
-			cl.onUpdate(watch.Modified, after);
+			//cl.onUpdate(watch.Modified, after);
 		},
 	}
 
